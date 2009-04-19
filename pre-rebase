@@ -1,0 +1,28 @@
+#!/usr/bin/env ruby
+
+# do not allow a rebase that would overwrite a 
+# commit that has already been pushed
+
+base_branch = ARGV[0]
+if ARGV[1]
+  topic_branch = "refs/heads/" + ARGV[1]
+else
+  topic_branch = `git symbolic-ref HEAD`.chomp
+end
+
+#puts "BASE (#{base_branch}) : TOPIC (#{topic_branch})"
+
+# see if any commit that will be rewritten has been pushed anywhere yet
+
+target_shas = `git rev-list #{base_branch}..#{topic_branch}`.split("\n")
+remote_refs = `git branch -r`.split("\n").map { |r| r.strip }
+
+target_shas.each do |sha|
+  remote_refs.each do |remote_ref|
+    already_pushed = (`git rev-list ^#{sha}^@ refs/remotes/#{remote_ref}`.chomp == sha)
+    if already_pushed
+      puts "[POLICY] Commit #{sha} has already been pushed to #{remote_ref}"
+      exit 1
+    end
+  end
+end
